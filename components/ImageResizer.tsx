@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { RotateCcw } from 'lucide-react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { RotateCcw, Download, Loader2 } from 'lucide-react';
 
 import UploadZone from '@/components/UploadZone';
-import ExportButton from '@/components/ExportButton';
 import ImagePresetSelector from '@/components/image/ImagePresetSelector';
 import ImageFramingControl from '@/components/image/ImageFramingControl';
 import ImageQualityControl from '@/components/image/ImageQualityControl';
@@ -50,6 +49,12 @@ export default function ImageResizer() {
   const [recipe, setRecipe] = useState<Omit<ImageEditRecipe, 'file'>>(DEFAULT_RECIPE);
   const [status, setStatus] = useState<ExportStatus>(DEFAULT_STATUS);
   const [outputDims, setOutputDims] = useState({ w: 0, h: 0 });
+  const [isAutoProcessing, setIsAutoProcessing] = useState(false);
+  const [outputSize, setOutputSize] = useState(0);
+
+  // Ref to track the latest processing request and cancel stale ones
+  const processingIdRef = useRef(0);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleFile = useCallback((f: File) => {
     if (originalSrc) URL.revokeObjectURL(originalSrc);
@@ -61,6 +66,7 @@ export default function ImageResizer() {
     setStatus(DEFAULT_STATUS);
     setRecipe(DEFAULT_RECIPE);
     setOutputDims({ w: 0, h: 0 });
+    setOutputSize(0);
 
     // Get natural dimensions
     const img = new Image();
@@ -73,42 +79,76 @@ export default function ImageResizer() {
     setRecipe(DEFAULT_RECIPE);
     setStatus(DEFAULT_STATUS);
     setOutputDims({ w: 0, h: 0 });
+    setOutputSize(0);
   };
 
-  const handleExport = async () => {
+  // Auto-process whenever recipe or file changes
+  useEffect(() => {
     if (!file) return;
-    if (status.outputUrl) URL.revokeObjectURL(status.outputUrl);
 
-    setStatus({ state: 'processing', progress: 50, message: 'Resizing image…', outputUrl: null, outputName: null });
+    // Determine target dimensions
+    const targetW = recipe.preset?.id !== 'custom' && recipe.preset
+      ? recipe.preset.width : recipe.customWidth;
+    const targetH = recipe.preset?.id !== 'custom' && recipe.preset
+      ? recipe.preset.height : recipe.customHeight;
 
-    try {
-      const fullRecipe: ImageEditRecipe = { ...recipe, file };
-      const blob = await processImage(fullRecipe);
+    // Don't process if custom dimensions are invalid
+    if (targetW <= 0 || targetH <= 0) return;
 
-      const outputUrl = URL.createObjectURL(blob);
-      const ext = recipe.format === 'jpeg' ? 'jpg' : recipe.format;
-      const baseName = file.name.replace(/\.[^.]+$/, '');
-      const outputName = `reframe-${baseName}.${ext}`;
-
-      // Get output dimensions
-      const outW = recipe.preset?.id !== 'custom' && recipe.preset
-        ? recipe.preset.width : recipe.customWidth;
-      const outH = recipe.preset?.id !== 'custom' && recipe.preset
-        ? recipe.preset.height : recipe.customHeight;
-
-      setOutputDims({ w: outW, h: outH });
-      setStatus({ state: 'done', progress: 100, message: 'Resize complete!', outputUrl, outputName });
-    } catch (err) {
-      console.error('Image resize error:', err);
-      setStatus({
-        state: 'error',
-        progress: 0,
-        message: err instanceof Error ? err.message : 'Resize failed. Please try again.',
-        outputUrl: null,
-        outputName: null,
-      });
+    // Debounce to avoid excessive processing (e.g. while typing custom dimensions)
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
     }
-  };
+
+    const currentId = ++processingIdRef.current;
+
+    debounceTimerRef.current = setTimeout(async () => {
+      setIsAutoProcessing(true);
+
+      try {
+        const fullRecipe: ImageEditRecipe = { ...recipe, file };
+        const blob = await processImage(fullRecipe);
+
+        // Only update if this is still the latest request
+        if (currentId !== processingIdRef.current) return;
+
+        // Revoke previous output URL
+        setStatus((prev) => {
+          if (prev.outputUrl) URL.revokeObjectURL(prev.outputUrl);
+          return prev;
+        });
+
+        const outputUrl = URL.createObjectURL(blob);
+        const ext = recipe.format === 'jpeg' ? 'jpg' : recipe.format;
+        const baseName = file.name.replace(/\.[^.]+$/, '');
+        const outputName = `snaptrim-${baseName}.${ext}`;
+
+        setOutputDims({ w: targetW, h: targetH });
+        setOutputSize(blob.size);
+        setStatus({ state: 'done', progress: 100, message: 'Resize complete!', outputUrl, outputName });
+      } catch (err) {
+        if (currentId !== processingIdRef.current) return;
+        console.error('Image resize error:', err);
+        setStatus({
+          state: 'error',
+          progress: 0,
+          message: err instanceof Error ? err.message : 'Resize failed.',
+          outputUrl: null,
+          outputName: null,
+        });
+      } finally {
+        if (currentId === processingIdRef.current) {
+          setIsAutoProcessing(false);
+        }
+      }
+    }, 300); // 300ms debounce
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [file, recipe]);
 
   const patch = <K extends keyof typeof recipe>(key: K, value: (typeof recipe)[K]) =>
     setRecipe((r) => ({ ...r, [key]: value }));
@@ -129,6 +169,13 @@ export default function ImageResizer() {
 
         {originalSrc && (
           <div className="fade-in">
+            {/* Auto-processing spinner overlay */}
+            {isAutoProcessing && (
+              <div className="mb-3 flex items-center justify-center gap-2 rounded-xl border border-[#2a2a2a] bg-[#111] px-4 py-3">
+                <Loader2 size={14} className="animate-spin text-[#22c55e]" />
+                <span className="text-sm text-[#888]">Resizing…</span>
+              </div>
+            )}
             <ImagePreview
               originalSrc={originalSrc}
               originalWidth={origDims.w}
@@ -137,7 +184,7 @@ export default function ImageResizer() {
               outputSrc={status.outputUrl}
               outputWidth={outputDims.w}
               outputHeight={outputDims.h}
-              outputSize={0}
+              outputSize={outputSize}
             />
           </div>
         )}
@@ -183,13 +230,24 @@ export default function ImageResizer() {
         {/* Divider */}
         <div className="border-t border-[#1a1a1a]" />
 
-        {/* Export */}
-        <ExportButton
-          status={status}
-          onExport={handleExport}
-          disabled={!file}
-          label="Resize Image"
-        />
+        {/* Download — only show when output is ready */}
+        {status.state === 'done' && status.outputUrl && (
+          <a
+            href={status.outputUrl}
+            download={status.outputName || 'snaptrim-export'}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 bg-[#22c55e] text-sm font-semibold text-black hover:bg-[#16a34a] transition-all duration-200 active:scale-[0.98]"
+          >
+            <Download size={16} />
+            Download Resized Image
+          </a>
+        )}
+
+        {/* Error state */}
+        {status.state === 'error' && (
+          <div className="flex items-center gap-2 rounded-2xl border border-red-900/50 bg-red-950/30 p-4">
+            <span className="text-sm text-red-300">{status.message || 'Resize failed.'}</span>
+          </div>
+        )}
 
         {/* Reset */}
         {file && (

@@ -29,6 +29,10 @@ export async function processImage(recipe: ImageEditRecipe): Promise<Blob> {
         return;
       }
 
+      // Enable high-quality image smoothing to prevent blurry output
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
       if (recipe.framing === 'fit') {
         // Letterbox / pillarbox — fill background then draw centered scaled image
         ctx.fillStyle = recipe.bgColor;

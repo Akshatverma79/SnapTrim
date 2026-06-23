@@ -112,7 +112,7 @@ export default function VideoEditor() {
       const outputUrl = URL.createObjectURL(blob);
       const ext = recipe.format;
       const baseName = file.name.replace(/\.[^.]+$/, '');
-      const outputName = `reframe-${baseName}.${ext}`;
+      const outputName = `snaptrim-${baseName}.${ext}`;
 
       setStatus({ state: 'done', progress: 100, message: 'Export complete!', outputUrl, outputName });
     } catch (err) {

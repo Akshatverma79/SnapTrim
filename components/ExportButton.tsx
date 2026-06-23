@@ -56,7 +56,7 @@ export default function ExportButton({
       <div className="flex w-full flex-col gap-2">
         <a
           href={status.outputUrl}
-          download={status.outputName || 'reframe-export'}
+          download={status.outputName || 'snaptrim-export'}
           className={cn(
             'flex w-full items-center justify-center gap-2 rounded-2xl py-4',
             'bg-[#22c55e] text-sm font-semibold text-black',

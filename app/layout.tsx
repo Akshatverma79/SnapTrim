@@ -24,12 +24,12 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'Reframe — Browser-Based Video & Image Editor',
+  title: 'SnapTrim — Browser-Based Video & Image Editor',
   description:
     'Free, private, no-upload video and image editor. Resize, trim, rotate, and convert videos and images entirely in your browser with FFmpeg.wasm and Canvas API.',
-  keywords: ['video editor', 'image resizer', 'browser', 'ffmpeg', 'no upload', 'privacy'],
+  keywords: ['video editor', 'image resizer', 'browser', 'ffmpeg', 'no upload', 'privacy', 'snaptrim'],
   openGraph: {
-    title: 'Reframe — Browser-Based Video & Image Editor',
+    title: 'SnapTrim — Browser-Based Video & Image Editor',
     description: 'Free, private, no-upload video and image editor powered by FFmpeg.wasm.',
     type: 'website',
   },

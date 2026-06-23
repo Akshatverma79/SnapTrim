@@ -43,7 +43,7 @@ export default function HomePage() {
                 className="text-2xl leading-none text-white"
                 style={{ fontFamily: 'var(--font-bebas-neue)', letterSpacing: '0.05em' }}
               >
-                REFRAME
+                SNAPTRIM
               </h1>
               <p className="text-[10px] text-[#444] leading-none mt-0.5" style={{ fontFamily: 'var(--font-dm-sans)' }}>
                 Browser-based video & image editor
@@ -169,7 +169,7 @@ export default function HomePage() {
                 className="text-lg text-white"
                 style={{ fontFamily: 'var(--font-bebas-neue)', letterSpacing: '0.05em' }}
               >
-                REFRAME
+                SNAPTRIM
               </span>
               <span className="text-[#333]">·</span>
               <span className="text-xs text-[#444]">MIT License</span>
